@@ -10,14 +10,14 @@ Future<void> payWithGooglePay(BuildContext context, PackageModel pkg) async {
 
   final token = await _googlePlayService.purchasePackage("basic_package");
   if (token == null) {
-    Get.snackbar("Purchase Failed", "Google Play purchase not completed");
+    Get.snackbar("Purchase Failed", "Google Pay purchase not completed");
     return;
   }
 
   final result = await _paymentService.verifyGooglePay(pkg.id, token);
   if (result['success']) {
     Get.snackbar(
-      "Google Play Verified",
+      "Google Pay Verified",
       "Credits updated successfully.\nTransaction ID: ${result['data']['transaction_id']}",
     );
   } else {
