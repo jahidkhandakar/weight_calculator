@@ -4,14 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
-import '../main.dart'; // for the global `cameras`
+import '../../../main.dart'; // for the global `cameras`
 
-class CameraView extends StatefulWidget {
+class Camera extends StatefulWidget {
   @override
   _CameraViewState createState() => _CameraViewState();
 }
 
-class _CameraViewState extends State<CameraView> {
+class _CameraViewState extends State<Camera> {
   CameraController? controller;
   bool isCameraReady = false;
 

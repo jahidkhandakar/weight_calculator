@@ -1,0 +1,197 @@
+import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:weight_calculator/services/auth_service.dart';
+import '../mvc/controllers/user_controller.dart';
+
+class AppDrawer extends StatefulWidget {
+  const AppDrawer({Key? key}) : super(key: key);
+
+  @override
+  State<AppDrawer> createState() => _AppDrawerState();
+}
+
+class _AppDrawerState extends State<AppDrawer> {
+  late final UserController userController;
+
+  @override
+  void initState() {
+    super.initState();
+    // Reuse existing controller if registered; otherwise create it.
+    userController = Get.isRegistered<UserController>()
+        ? Get.find<UserController>()
+        : Get.put(UserController());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Drawer(
+      child: Column(
+        children: [
+          // Header is reactive and null-safe
+          Obx(() {
+            final u = userController.user.value;
+            final isLoading = userController.isLoading.value;
+
+            return Container(
+              height: 180,
+              width: double.infinity,
+              color: const Color.fromARGB(255, 1, 104, 51),
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const CircleAvatar(
+                      radius: 40,
+                      backgroundColor: Colors.white,
+                      child: Icon(
+                        Icons.person,
+                        size: 50,
+                        color: Color.fromARGB(255, 1, 104, 51),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      isLoading ? 'Loading...' : (u?.name ?? 'Guest'),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      isLoading ? '—' : (u?.username ?? '—'),
+                      style: const TextStyle(color: Colors.white70, fontSize: 14),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
+
+          Expanded(
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.info_outline),
+                  title: const Text(
+                    'About',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.5,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 2),
+                  onTap: () {
+                    Get.back();
+                    Get.toNamed('/about');
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.menu_book),
+                  title: const Text(
+                    'How To Guide',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.5,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 2),
+                  onTap: () {
+                    Get.back();
+                    Get.toNamed('/howto');
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.qr_code),
+                  title: const Text(
+                    'ArUco Marker',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.5,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 2),
+                  onTap: () {
+                    Get.back();
+                    Get.toNamed('/aruco');
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.local_offer, color: Colors.green),
+                  title: const Text(
+                    'OFFER',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.0,
+                      color: Colors.green,
+                    ),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 2),
+                  onTap: () {
+                    Get.back();
+                    showDialog(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Special Offer'),
+                        content: const Text('No offers available at the moment.'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            child: const Text('OK'),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+                const Divider(),
+
+                // LOGOUT
+                ListTile(
+                  leading: const Icon(Icons.logout, color: Colors.red),
+                  title: const Text(
+                    'Logout',
+                    style: TextStyle(
+                      color: Colors.red,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  onTap: () {
+                    Get.back(); // close drawer
+                    // Use a fresh instance unless you've registered AuthService globally.
+                    final authService = AuthService();
+                    authService.logout();
+                    Get.offAllNamed('/login');
+                    Get.snackbar(
+                      "You are logged out from the app!",
+                      "See you again!",
+                      snackPosition: SnackPosition.BOTTOM,
+                      backgroundColor: Colors.grey[200],
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.close),
+            title: const Text('Close'),
+            onTap: () => Get.back(),
+          ),
+        ],
+      ),
+    );
+  }
+}

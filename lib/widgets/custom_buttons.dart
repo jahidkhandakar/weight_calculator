@@ -2,9 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
-
-import '../controllers/cow_controller.dart';
-import 'camera_view.dart';
+import '../mvc/controllers/cow_controller.dart';
+import 'camera.dart';
 
 class CustomButtons extends StatelessWidget {
   final CowController controller = Get.find<CowController>();
@@ -17,7 +16,7 @@ class CustomButtons extends StatelessWidget {
   }
 
   Future<void> _openCameraView(BuildContext context) async {
-    final capturedImage = await Get.to(() => CameraView());
+    final capturedImage = await Get.to(() => Camera());
     if (capturedImage != null && capturedImage is File) {
       await controller.uploadImage(capturedImage);
     }

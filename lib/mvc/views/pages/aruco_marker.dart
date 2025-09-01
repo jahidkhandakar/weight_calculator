@@ -16,7 +16,7 @@ class ArucoMarker extends StatelessWidget {
         title: Text(
           'আরুকো মার্কার কীভাবে প্রিন্ট করবেন',
           style: TextStyle(
-            fontSize: 20,
+            fontSize: 16,
             fontWeight: FontWeight.bold,
             color: Colors.white,
           ),
