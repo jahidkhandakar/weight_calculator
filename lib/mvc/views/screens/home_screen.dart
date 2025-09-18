@@ -1,8 +1,14 @@
 import 'dart:io';
 import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
+import 'package:image/image.dart' as img;
+
 import '../../controllers/cow_controller.dart';
 import '../../controllers/user_controller.dart'; // for refreshing Profile tab
 import '../pages/credit_page.dart';
@@ -24,7 +30,14 @@ class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
 
   File? _selectedImage;
-  //*___________________Init State____________________
+  int _quarterTurns = 0; // 0,1,2,3 -> 0°,90°,180°,270°
+
+  //* ------------------- compression config -----------------------
+  static const int _kTargetBytes = 500 * 1024; // 500 KB
+  static const int _kMaxDimension = 1400; // cap width/height on first pass
+  static const int _kMinDimension = 640;  // don't go smaller than this unless necessary
+  static const List<int> _kQualities = [90, 80, 70, 60, 50, 40, 30];
+
   @override
   void initState() {
     super.initState();
@@ -35,34 +48,146 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  //*___________________Image Picker____________________
+  //* ---------- Image pick / capture ----------
   Future<void> _pickImage() async {
     final picked = await ImagePicker().pickImage(source: ImageSource.gallery);
     if (picked != null) {
       setState(() {
         _selectedImage = File(picked.path);
-        controller.cowInfo.value = null; // clear old result
+        _quarterTurns = 0; // reset rotation
+        controller.cowInfo.value = null;
       });
     }
   }
 
-  //*___________________Camera View____________________
   Future<void> _openCameraView() async {
     final capturedImage = await Get.to(() => Camera());
     if (capturedImage != null && capturedImage is File) {
       setState(() {
         _selectedImage = capturedImage;
-        controller.cowInfo.value = null; // clear old result
+        _quarterTurns = 0; // reset rotation
+        controller.cowInfo.value = null;
       });
     }
   }
 
-  //*___________________Upload Image____________________
+  //* ---------- Rotate preview (90° each tap) ----------
+  void _rotateOnce() {
+    if (_selectedImage == null) return;
+    setState(() {
+      _quarterTurns = (_quarterTurns + 1) % 4;
+    });
+  }
+
+  //* ---------- Prepare rotated + compressed file ----------
+  // 1) decode
+  // 2) rotate (if _quarterTurns>0)
+  // 3) downscale to <= _kMaxDimension
+  // 4) encode JPG with decreasing quality until <= _kTargetBytes
+  // 5) if still too big, reduce dimensions iteratively (not below _kMinDimension)
+  Future<File> _prepareImageForUpload(File original) async {
+  try {
+    final bytes = await original.readAsBytes();
+
+    // Decode (supports most formats)
+    final decoded0 = img.decodeImage(bytes);
+    if (decoded0 == null) {
+      // If we can't decode, just return the original
+      return original;
+    }
+
+    // From here use a non-null image variable
+    var image = decoded0;
+
+    // Apply rotation
+    final turns = _quarterTurns % 4;
+    if (turns != 0) {
+      image = img.copyRotate(image, angle: (turns * 90).toDouble());
+    }
+
+    // Start from a capped size if very large
+    image = _resizeIfNeeded(image, _kMaxDimension);
+
+    // Try encoding under target with current dimensions
+    Uint8List? out = _encodeUnderSize(
+      image,
+      targetBytes: _kTargetBytes,
+      qualities: _kQualities,
+    );
+
+    if (out == null) {
+      // If still too big, iteratively scale down and retry
+      var currentW = image.width;
+      var currentH = image.height;
+
+      while (out == null && (currentW > _kMinDimension || currentH > _kMinDimension)) {
+        final nextW = (currentW * 0.85).round();
+        final nextH = (currentH * 0.85).round();
+        image = img.copyResize(image, width: nextW, height: nextH);
+        currentW = image.width;
+        currentH = image.height;
+
+        out = _encodeUnderSize(
+          image,
+          targetBytes: _kTargetBytes,
+          qualities: _kQualities,
+        );
+      }
+
+      // If STILL null, just encode at the lowest quality tried
+      out ??= Uint8List.fromList(img.encodeJpg(image, quality: _kQualities.last));
+    }
+
+    final tempDir = await getTemporaryDirectory();
+    final outPath = p.join(
+      tempDir.path,
+      'upload_${DateTime.now().millisecondsSinceEpoch}.jpg',
+    );
+    final outFile = File(outPath);
+    await outFile.writeAsBytes(out, flush: true);
+    return outFile;
+  } catch (_) {
+    // If anything fails, just upload original to avoid blocking user
+    return original;
+  }
+}
+
+
+  img.Image _resizeIfNeeded(img.Image src, int maxDim) {
+    final w = src.width;
+    final h = src.height;
+    if (w <= maxDim && h <= maxDim) return src;
+    // keep aspect ratio
+    if (w >= h) {
+      return img.copyResize(src, width: maxDim);
+    } else {
+      return img.copyResize(src, height: maxDim);
+    }
+  }
+
+  Uint8List? _encodeUnderSize(
+    img.Image src, {
+    required int targetBytes,
+    required List<int> qualities,
+  }) {
+    for (final q in qualities) {
+      final data = Uint8List.fromList(img.encodeJpg(src, quality: q));
+      if (data.lengthInBytes <= targetBytes) {
+        return data;
+      }
+    }
+    return null; // none met the target
+  }
+
+  // *---------- Upload flow ----------
   Future<void> _uploadImage() async {
     if (_selectedImage != null) {
-      await controller.uploadImage(_selectedImage!);
+      // Rotate + compress before upload
+      final prepared = await _prepareImageForUpload(_selectedImage!);
+      await controller.uploadImage(prepared);
       setState(() {
         _selectedImage = null; // Hide preview after upload
+        _quarterTurns = 0;
       });
     } else {
       Get.snackbar(
@@ -74,32 +199,29 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  //*________________ Pull-to-refresh Handler ___________________
+  //* ---------- Pull-to-refresh ----------
   Future<void> _handleRefresh() async {
-    if (controller.isLoading.value) return; // don't refresh while measuring
-    // optional: clear preview & last result on refresh
+    if (controller.isLoading.value) return;
     setState(() {
       _selectedImage = null;
+      _quarterTurns = 0;
       controller.cowInfo.value = null;
     });
-    await controller.refreshCredits(); // fetch latest credits from backend
+    await controller.refreshCredits();
   }
 
   Widget _buildHomeContent() {
     return Obx(() {
       final cow = controller.cowInfo.value;
       final isLoading = controller.isLoading.value;
-      final left = controller.creditsLeft.value; // remaining from server
-      final total =
-          controller.totalOrDefault; // total from server (fallback 20)
-
+      final left = controller.creditsLeft.value;
+      final total = controller.totalOrDefault;
       final low = left <= 3 && left > 0;
 
       return Stack(
         children: [
           Column(
             children: [
-              // Wrap the scrollable with RefreshIndicator
               Expanded(
                 child: RefreshIndicator(
                   onRefresh: _handleRefresh,
@@ -132,17 +254,35 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         const SizedBox(height: 10),
 
-                        //* Image Preview or API Image
-                        if (_selectedImage != null && cow == null)
+                        // ----- Preview selected image or processed image from API
+                        if (_selectedImage != null && cow == null) ...[
                           ClipRRect(
                             borderRadius: BorderRadius.circular(16),
-                            child: Image.file(
-                              _selectedImage!,
-                              height: 150,
-                              fit: BoxFit.cover,
+                            child: RotatedBox(
+                              quarterTurns: _quarterTurns,
+                              child: Image.file(
+                                _selectedImage!,
+                                height: 150,
+                                fit: BoxFit.cover,
+                              ),
                             ),
-                          )
-                        else if (cow?.processedImage.isNotEmpty == true)
+                          ),
+                          const SizedBox(height: 6),
+                          //*------- Rotate button row -------*//
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              TextButton.icon(
+                                onPressed: _rotateOnce,
+                                icon: const Icon(Icons.rotate_right, size: 20),
+                                label: const Text('Rotate'),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: Colors.green[900],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ] else if (cow?.processedImage.isNotEmpty == true) ...[
                           ClipRRect(
                             borderRadius: BorderRadius.circular(16),
                             child: Image.memory(
@@ -151,10 +291,11 @@ class _HomeScreenState extends State<HomeScreen> {
                               fit: BoxFit.contain,
                             ),
                           ),
+                        ],
 
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 2),
 
-                        //* Prediction Results
+                        // ----- Prediction result
                         if (cow != null) ...[
                           Text(
                             "পরিমাপ করা ওজন: ${cow.weight.toStringAsFixed(2)} kg",
@@ -171,12 +312,9 @@ class _HomeScreenState extends State<HomeScreen> {
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-                          // If you want, you can show credits here too using:
-                          // if (cow.creditsRemaining != null)
-                          //   Text("Credits Remaining: ${cow.creditsRemaining}/$total"),
                         ],
 
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 8),
 
                         if (low)
                           Padding(
@@ -190,7 +328,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ),
 
-                        //* Buttons: SHOW ONLY when a new image is selected AND no result yet
+                        // ----- Actions when a new image is selected and no result yet
                         if (_selectedImage != null && cow == null)
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
@@ -208,7 +346,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                     return;
                                   }
                                   if (left <= 0) {
-                                    // Out of credits → go to Credit tab
                                     Get.offAllNamed(
                                       '/home',
                                       arguments: {'tabIndex': 1},
@@ -217,19 +354,13 @@ class _HomeScreenState extends State<HomeScreen> {
                                   }
                                   await _uploadImage();
                                 },
-                                icon: const Icon(
-                                  Icons.analytics,
-                                  color: Colors.white,
-                                ),
+                                icon: const Icon(Icons.analytics, color: Colors.white),
                                 label: const Text(
                                   "Measure Weight",
                                   style: TextStyle(color: Colors.white),
                                 ),
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor:
-                                      left > 0
-                                          ? Colors.green[900]
-                                          : Colors.grey,
+                                  backgroundColor: left > 0 ? Colors.green[900] : Colors.grey,
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 20,
                                     vertical: 14,
@@ -253,7 +384,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
 
-              //*_______________ Camera & Gallery row__________________
+              // ----- Camera & Gallery row
               Container(
                 padding: const EdgeInsets.symmetric(vertical: 1),
                 child: Row(
@@ -284,7 +415,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
 
-          //* ___________________ Overlay Loader ___________________
+          // ----- Overlay Loader
           if (controller.isLoading.value)
             Container(
               color: Colors.black.withOpacity(0.5),
@@ -341,7 +472,6 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         centerTitle: true,
         actions: [
-          //*------------ Server credits chip (reactive)----------------
           Obx(() {
             final left = controller.creditsLeft.value;
             final total = controller.totalOrDefault;
@@ -363,7 +493,6 @@ class _HomeScreenState extends State<HomeScreen> {
           setState(() {
             _currentIndex = index;
           });
-          // 🔄 Auto-refresh Profile tab on switch
           if (index == 2 && Get.isRegistered<UserController>()) {
             await Get.find<UserController>().fetchUserDetails();
           }
@@ -371,4 +500,8 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+}
+
+extension _IfEmptyExt on String {
+  String ifEmpty(String Function() orElse) => isEmpty ? orElse() : this;
 }
