@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:weight_calculator/services/auth_service.dart';
+import 'package:weight_calculator/utils/phone_number_helper.dart';
 
 class RequestOtpScreen extends StatefulWidget {
   const RequestOtpScreen({super.key});
@@ -27,7 +28,7 @@ class _RequestOtpScreenState extends State<RequestOtpScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     final phone = _phoneController.text.trim();
-    final normalizedPhone = _auth.normalizeBdPhone(phone);
+    final normalizedPhone = normalizeBdPhone(phone);
 
     setState(() => _submitting = true);
 
@@ -103,7 +104,7 @@ class _RequestOtpScreenState extends State<RequestOtpScreen> {
                     border: OutlineInputBorder(),
                     prefixIcon: Icon(Icons.phone),
                   ),
-                  validator: (value) => _auth.validateBdPhone(value ?? ''),
+                  validator: (value) => validateBdPhone(value ?? ''),
                 ),
                 const SizedBox(height: 32),
                 SizedBox(

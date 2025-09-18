@@ -4,6 +4,9 @@ import 'package:get_storage/get_storage.dart';
 import '../models/cow_model.dart';
 import '../../services/prediction_service.dart';
 import '../../services/auth_service.dart';
+import 'package:weight_calculator/utils/errors/error_handler.dart';
+import 'package:weight_calculator/utils/errors/app_exception.dart';
+
 
 class CowController extends GetxController {
   // Services
@@ -95,71 +98,57 @@ class CowController extends GetxController {
 
   /// Call this from UI
   Future<void> uploadImage(File image) async {
-    if (creditsLeft.value <= 0) {
-      _showBuyDialog();
-      return;
-    }
-
-    try {
-      isLoading.value = true;
-
-      //final token = storage.read('access_token') ?? "";
-      final token = await _authService.getValidAccessToken();
-      if (token == null) {
-        Get.snackbar('Session expired', 'Please sign in again');
-        return;
-      }
-      final result = await _predictionService.predict(image, token);
-
-      if (result['success'] == true) {
-        cowInfo.value = CowModel.fromJson(result['data']);
-
-        final data = result['data'] as Map<String, dynamic>?;
-
-        // Prefer credits from prediction response if provided
-        final fromRemaining =
-            data?['credits_remaining'] ??
-            data?['remaining_credits'] ??
-            data?['credits'];
-        if (fromRemaining != null) {
-          creditsLeft.value =
-              (fromRemaining is int)
-                  ? fromRemaining
-                  : int.tryParse('$fromRemaining') ?? creditsLeft.value;
-        }
-
-        final fromTotal =
-            data?['credits_total'] ??
-            data?['total_credits'] ??
-            data?['free_credits_total'] ??
-            data?['initial_credits'] ??
-            data?['credit_limit'] ??
-            data?['quota'] ??
-            data?['free_credits_limit'];
-        if (fromTotal != null) {
-          final pt =
-              (fromTotal is int) ? fromTotal : int.tryParse('$fromTotal');
-          if (pt != null && pt > 0) totalCredits.value = pt;
-        }
-
-        // If neither was present, refresh from user endpoint
-        if (fromRemaining == null && fromTotal == null) {
-          await refreshCredits();
-        }
-      } else {
-        cowInfo.value = null;
-        Get.snackbar(
-          'Prediction Failed',
-          '${result['message'] ?? 'Unknown error'}',
-        );
-      }
-    } catch (e, stack) {
-      cowInfo.value = null;
-      Get.snackbar('Error', 'Failed to get result from API: $e');
-      // ignore: avoid_print
-      print('Error uploading image: $e\n$stack');
-    } finally {
-      isLoading.value = false;
-    }
+  if (creditsLeft.value <= 0) {
+    _showBuyDialog();
+    return;
   }
+
+  isLoading.value = true;
+  cowInfo.value = null;
+  try {
+    final token = await _authService.getValidAccessToken();
+    if (token == null) throw AppException.authExpired();
+
+    final result = await _predictionService.predict(image, token);
+
+    if (result['success'] == true) {
+      final data = result['data'] as Map<String, dynamic>;
+
+      // Parse prediction to your model
+      cowInfo.value = CowModel.fromMap(data);
+
+      // Update credits if present
+      final fromRemaining = data['credits_remaining'] ??
+          data['remaining_credits'] ??
+          data['credits'] ??
+          data['credit'];
+      if (fromRemaining != null) {
+        final pr = (fromRemaining is int) ? fromRemaining : int.tryParse('$fromRemaining');
+        if (pr != null) creditsLeft.value = pr;
+      }
+
+      final fromTotal = data['credits_total'] ??
+          data['total_credits'] ??
+          data['free_credits_total'] ??
+          data['initial_credits'] ??
+          data['initial_free_credits'] ??
+          data['credit_limit'] ??
+          data['quota'] ??
+          data['free_credits_limit'];
+      if (fromTotal != null) {
+        final pt = (fromTotal is int) ? fromTotal : int.tryParse('$fromTotal');
+        if (pt != null && pt > 0) totalCredits.value = pt;
+      }
+
+      if (fromRemaining == null && fromTotal == null) {
+        await refreshCredits();
+      }
+    }
+  } catch (e, st) {
+    ErrorHandler.I.handle(e, stack: st);
+  } finally {
+    isLoading.value = false;
+  }
+}
+
 }

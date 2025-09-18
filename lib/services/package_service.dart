@@ -1,38 +1,30 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:get_storage/get_storage.dart';
 import 'package:weight_calculator/services/auth_service.dart';
+import 'package:weight_calculator/utils/errors/app_exception.dart';
 import '../utils/api.dart';
+import 'package:weight_calculator/utils/errors/error_mapper.dart';
 
 class PackageService {
-  final GetStorage storage = GetStorage();
   final AuthService _auth = AuthService();
 
   Future<Map<String, dynamic>> getPackages() async {
     try {
-      //final token = storage.read('access_token');
       final token = await _auth.getValidAccessToken();
-      if (token == null) {
-        return {"success": false, "message": "No access token found"};
-      }
+      if (token == null) throw AppException.authExpired();
 
-      final response = await http.get(
+      final r = await http.get(
         Uri.parse(Api.packages),
         headers: ApiHeaders.authHeaders(token),
       );
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+      if (r.statusCode >= 200 && r.statusCode < 300) {
+        final data = jsonDecode(r.body);
         return {"success": true, "data": data};
-      } else {
-        return {
-          "success": false,
-          "message": "Error: ${response.statusCode} ${response.reasonPhrase}",
-          "body": response.body,
-        };
       }
+      throw ErrorMapper.toAppException(r, statusCode: r.statusCode);
     } catch (e) {
-      return {"success": false, "message": e.toString()};
+      throw ErrorMapper.toAppException(e);
     }
   }
 }

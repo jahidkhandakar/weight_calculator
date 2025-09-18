@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:weight_calculator/services/auth_service.dart';
+import 'package:weight_calculator/utils/ui/snackbar_service.dart';
+import 'package:weight_calculator/utils/errors/app_exception.dart';
 import '../mvc/controllers/user_controller.dart';
 
 class AppDrawer extends StatefulWidget {
@@ -17,9 +19,10 @@ class _AppDrawerState extends State<AppDrawer> {
   void initState() {
     super.initState();
     // Reuse existing controller if registered; otherwise create it.
-    userController = Get.isRegistered<UserController>()
-        ? Get.find<UserController>()
-        : Get.put(UserController());
+    userController =
+        Get.isRegistered<UserController>()
+            ? Get.find<UserController>()
+            : Get.put(UserController());
   }
 
   @override
@@ -61,7 +64,10 @@ class _AppDrawerState extends State<AppDrawer> {
                     ),
                     Text(
                       isLoading ? '—' : (u?.username ?? '—'),
-                      style: const TextStyle(color: Colors.white70, fontSize: 14),
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 14,
+                      ),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
@@ -85,7 +91,10 @@ class _AppDrawerState extends State<AppDrawer> {
                       color: Colors.black87,
                     ),
                   ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 2),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 2,
+                  ),
                   onTap: () {
                     Get.back();
                     Get.toNamed('/about');
@@ -102,7 +111,10 @@ class _AppDrawerState extends State<AppDrawer> {
                       color: Colors.black87,
                     ),
                   ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 2),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 2,
+                  ),
                   onTap: () {
                     Get.back();
                     Get.toNamed('/howto');
@@ -119,7 +131,10 @@ class _AppDrawerState extends State<AppDrawer> {
                       color: Colors.black87,
                     ),
                   ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 2),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 2,
+                  ),
                   onTap: () {
                     Get.back();
                     Get.toNamed('/aruco');
@@ -136,21 +151,32 @@ class _AppDrawerState extends State<AppDrawer> {
                       color: Colors.green,
                     ),
                   ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 2),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 2,
+                  ),
                   onTap: () {
                     Get.back();
                     showDialog(
                       context: context,
-                      builder: (context) => AlertDialog(
-                        title: const Text('Special Offer'),
-                        content: const Text('No offers available at the moment.'),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.of(context).pop(),
-                            child: const Text('OK'),
+                      builder:
+                          (context) => AlertDialog(
+                            title: const Text('Special Offer'),
+                            content: const Text(
+                              'No offers available at the moment.',
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.of(context).pop(),
+                                child: const Text(
+                                  'OK',
+                                  style: TextStyle(
+                                    color: Color.fromARGB(255, 1, 119, 5),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
                     );
                   },
                 ),
@@ -166,18 +192,53 @@ class _AppDrawerState extends State<AppDrawer> {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  onTap: () {
-                    Get.back(); // close drawer
-                    // Use a fresh instance unless you've registered AuthService globally.
-                    final authService = AuthService();
-                    authService.logout();
-                    Get.offAllNamed('/login');
-                    Get.snackbar(
-                      "You are logged out from the app!",
-                      "See you again!",
-                      snackPosition: SnackPosition.BOTTOM,
-                      backgroundColor: Colors.grey[200],
+                  onTap: () async {
+                    Get.back();
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder:
+                          (context) => AlertDialog(
+                            title: const Text('Are you sure to log out?'),
+                            content: const Text(
+                              'You will be logged out of the app.',
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed:
+                                    () => Navigator.of(context).pop(false),
+                                child: const Text(
+                                  'Cancel',
+                                  style: TextStyle(
+                                    color: Color.fromARGB(255, 1, 119, 5),
+                                  ),
+                                ),
+                              ),
+                              TextButton(
+                                onPressed:
+                                    () => Navigator.of(context).pop(true),
+                                child: const Text(
+                                  'OK',
+                                  style: TextStyle(
+                                    color: Color.fromARGB(255, 1, 119, 5),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                     );
+                    if (confirm == true) {
+                      final authService = AuthService();
+                      await authService.logout();
+                      Get.offAllNamed('/login');
+                      SnackbarService.I.show(
+                        AppException(
+                          title: "You are logged out from the app!",
+                          code: "logout_success",
+                          userMessage: "See you again!",
+                          severity: ErrorSeverity.info,
+                        ),
+                      );
+                    }
                   },
                 ),
               ],

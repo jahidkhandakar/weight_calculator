@@ -1,48 +1,77 @@
+// lib/services/auth_service.dart
 import 'dart:convert';
 import 'package:get_storage/get_storage.dart';
 import 'package:http/http.dart' as http;
+
+import 'package:weight_calculator/utils/phone_number_helper.dart';
 import '../utils/api.dart';
+
+import 'package:weight_calculator/utils/errors/app_exception.dart';
+import 'package:weight_calculator/utils/errors/error_mapper.dart';
 
 class AuthService {
   final GetStorage storage = GetStorage();
 
-  // ---------- Public API ----------
+  //--------------------------- Public API ---------------------------//
+
+  /// Register a new user
   Future<Map<String, dynamic>> register({
     required String phone,
     required String name,
     required String password,
     required String confirmPassword,
-  }) => _post(Api.register, {
-    "username": phone,
-    "name": name,
-    "password": password,
-    "confirm_password": confirmPassword,
-  }, false);
+  }) {
+    return _post(
+      Api.register,
+      {
+        "username": phone, // keep as-is if backend expects username=phone
+        "name": name,
+        "password": password,
+        "confirm_password": confirmPassword,
+      },
+      false,
+    );
+  }
 
+  /// Login with phone/password and persist tokens on success
   Future<Map<String, dynamic>> login({
     required String phone,
     required String password,
   }) async {
-    final res = await _post(Api.login, {
-      "username": phone,
-      "password": password,
-    }, false);
+    final res = await _post(
+      Api.login,
+      {
+        "username": phone, // or normalizeBdPhone(phone) if backend expects it
+        "password": password,
+      },
+      false,
+    );
+
     if (res["success"] == true) {
       final data = res["data"] as Map<String, dynamic>;
       final access = data["access"]?.toString();
       final refresh = data["refresh"]?.toString();
       if (access != null && refresh != null) {
-        saveTokens(access, refresh); // <-- IMPORTANT
+        await saveTokens(access, refresh);
       }
     }
     return res;
   }
 
-  Future<Map<String, dynamic>> refreshToken(String refreshToken) =>
-      _post(Api.refreshToken, {"refresh": refreshToken}, false);
+  /// Refresh the access token using a refresh token
+  /// Returns a success=false map on failure (don’t throw here to simplify callers)
+  Future<Map<String, dynamic>> refreshToken(String refreshToken) async {
+    try {
+      return await _post(Api.refreshToken, {"refresh": refreshToken}, false);
+    } catch (_) {
+      return {"success": false, "message": "Refresh failed"};
+    }
+  }
 
+  /// Fetch current user details (requires auth)
   Future<Map<String, dynamic>> getUserDetails() => _get(Api.userDetails, true);
 
+  /// Change password (requires auth)
   Future<Map<String, dynamic>> changePassword({
     required String oldPassword,
     required String newPassword,
@@ -51,59 +80,80 @@ class AuthService {
     final body = {
       "old_password": oldPassword,
       "new_password": newPassword,
-      if (confirmNewPassword != null)
-        "confirm_new_password": confirmNewPassword,
+      if (confirmNewPassword != null) "confirm_new_password": confirmNewPassword,
     };
     return _put(Api.changePassword, body, true);
   }
 
-  Future<Map<String, dynamic>> requestOtp(String phone) =>
-      _post(Api.requestOtp, {"phone_number": normalizeBdPhone(phone)}, false);
+  /// Request OTP for password reset (public)
+  Future<Map<String, dynamic>> requestOtp(String phone) {
+    return _post(
+      Api.requestOtp,
+      {"phone_number": normalizeBdPhone(phone)},
+      false,
+    );
+  }
 
+  /// Verify OTP (public)
   Future<Map<String, dynamic>> verifyOtp({
     required String phone,
     required String otp,
-  }) => _post(Api.verifyOtp, {
-    "phone_number": normalizeBdPhone(phone),
-    "otp": otp,
-  }, false);
+  }) {
+    return _post(
+      Api.verifyOtp,
+      {
+        "phone_number": normalizeBdPhone(phone),
+        "otp": otp,
+      },
+      false,
+    );
+  }
 
+  /// Verify OTP and set new password (public)
   Future<Map<String, dynamic>> verifyOtpAndSetPassword({
     required String phone,
     required String otp,
     required String newPassword,
     required String confirmNewPassword,
-  }) => _post(Api.verifyOtp, {
-    "phone_number": normalizeBdPhone(phone),
-    "otp": otp,
-    "new_password": newPassword,
-    "confirm_new_password": confirmNewPassword,
-  }, false);
+  }) {
+    return _post(
+      Api.verifyOtp, // adjust if you have a different endpoint
+      {
+        "phone_number": normalizeBdPhone(phone),
+        "otp": otp,
+        "new_password": newPassword,
+        "confirm_new_password": confirmNewPassword,
+      },
+      false,
+    );
+  }
 
-  // ---------- Tokens ----------
-  void saveTokens(String access, String refresh) {
-    storage.write('access_token', access);
-    storage.write('refresh_token', refresh);
+  // ------------------------ Token Utilities ------------------------ //
+
+  Future<void> saveTokens(String access, String refresh) async {
+    await storage.write('access_token', access);
+    await storage.write('refresh_token', refresh);
   }
 
   String? getToken() => storage.read('access_token');
   String? getRefreshToken() => storage.read('refresh_token');
 
-  void logout() => storage.erase();
+  Future<void> logout() async {
+    await storage.erase();
+  }
 
-  //* ---------- Auto refresh access token ----------
-  // In AuthService.getValidAccessToken()
+  /// Returns a valid access token or null if refresh failed.
+  /// - If the access token is near expiry, attempts a refresh once.
   Future<String?> getValidAccessToken() async {
     final access = getToken();
     final refresh = getRefreshToken();
 
-    // Log remaining seconds of the access token (if present)
+    // Debug: log remaining seconds (best-effort)
     if (access != null) {
       try {
         final parts = access.split('.');
-        final payload = jsonDecode(
-          utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))),
-        );
+        final payload =
+            jsonDecode(utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))));
         final exp = (payload['exp'] as num).toInt();
         final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
         final left = exp - now;
@@ -112,26 +162,26 @@ class AuthService {
       } catch (_) {}
     }
 
-    // If expired/near, refresh
+    // If expired or close to expiry, refresh
     if (access == null || _isTokenExpired(access, leewaySeconds: 10)) {
       if (refresh == null) return null;
       // ignore: avoid_print
       print("[auth] refreshing access with refresh token…");
-      final result = await this.refreshToken(refresh);
+
+      final result = await refreshToken(refresh);
       // ignore: avoid_print
-      print(
-        "[auth] refresh result: ${result['success']} ${result['data'] ?? result['message']}",
-      );
+      print("[auth] refresh result: ${result['success']} ${result['data'] ?? result['message']}");
+
       if (result['success'] == true) {
         final data = result['data'] as Map<String, dynamic>;
         final newAccess = data['access']?.toString();
         final newRefresh = data['refresh']?.toString() ?? refresh;
         if (newAccess != null) {
-          saveTokens(newAccess, newRefresh);
+          await saveTokens(newAccess, newRefresh);
           return newAccess;
         }
       } else {
-        logout();
+        await logout();
         return null;
       }
     }
@@ -142,10 +192,9 @@ class AuthService {
     try {
       final parts = token.split('.');
       if (parts.length != 3) return true;
-      final payload = jsonDecode(
-        utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))),
-      );
-      final exp = payload['exp'] as int;
+      final payload =
+          jsonDecode(utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))));
+      final exp = (payload['exp'] as int);
       final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
       return now + leewaySeconds >= exp;
     } catch (_) {
@@ -153,110 +202,62 @@ class AuthService {
     }
   }
 
-  // ---------- Generic HTTP helpers (with 1x refresh+retry on 401) ----------
+  // --------------- Generic HTTP (with 1x refresh & retry) --------------- //
+
   Future<Map<String, dynamic>> _post(
     String url,
     Map<String, dynamic> body,
     bool useAuth,
   ) async {
     try {
-      final token = useAuth ? await getValidAccessToken() : null;
-      if (useAuth && token == null) {
-        print('AuthService: POST blocked — no valid access token for $url');
-        return {"success": false, "message": "Not authenticated", "code": 401};
+      final uri = Uri.parse(url);
+      final payload = jsonEncode(body);
+
+      final http.Response res = useAuth
+          ? await _authedOnceWithRefresh(
+              (t) => http.post(uri, headers: ApiHeaders.authHeaders(t), body: payload),
+            )
+          : await http
+              .post(uri, headers: ApiHeaders.publicHeaders, body: payload)
+              .timeout(const Duration(seconds: 20));
+
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        final text = res.body.trimLeft();
+        return {
+          "success": true,
+          "data": text.isEmpty ? {} : jsonDecode(text),
+        };
       }
-      final headers =
-          useAuth ? ApiHeaders.authHeaders(token!) : ApiHeaders.publicHeaders;
-      print('AuthService POST $url headers: $headers body: $body');
-
-      var res = await http
-          .post(Uri.parse(url), headers: headers, body: jsonEncode(body))
-          .timeout(const Duration(seconds: 20));
-
-      // 401 → try one refresh + retry once (auth calls only)
-      if (useAuth && res.statusCode == 401) {
-        final rTok = getRefreshToken();
-        if (rTok != null && rTok.isNotEmpty) {
-          final r = await refreshToken(rTok);
-          print('AuthService: POST 401 → refresh result: $r');
-          if (r['success'] == true) {
-            final data = r['data'] as Map<String, dynamic>;
-            final newAccess = data['access']?.toString();
-            final newRefresh = data['refresh']?.toString() ?? rTok;
-            if (newAccess != null) saveTokens(newAccess, newRefresh);
-            res = await http
-                .post(
-                  Uri.parse(url),
-                  headers: ApiHeaders.authHeaders(newAccess ?? ''),
-                  body: jsonEncode(body),
-                )
-                .timeout(const Duration(seconds: 20));
-          } else {
-            logout();
-            return {
-              "success": false,
-              "message": "Not authenticated",
-              "code": 401,
-            };
-          }
-        }
-      }
-
-      print(
-        'AuthService POST $url status: ${res.statusCode} body: ${res.body}',
-      );
-      return _foldHttpResponse(res);
+      throw ErrorMapper.toAppException(res, statusCode: res.statusCode);
     } catch (e) {
-      return {"success": false, "message": e.toString()};
+      throw ErrorMapper.toAppException(e);
     }
   }
 
   Future<Map<String, dynamic>> _get(String url, bool useAuth) async {
     try {
-      final token = useAuth ? await getValidAccessToken() : null;
-      if (useAuth && token == null) {
-        print('AuthService: GET blocked — no valid access token for $url');
-        return {"success": false, "message": "Not authenticated", "code": 401};
+      final uri = Uri.parse(url);
+
+      final http.Response res = useAuth
+          ? await _authedOnceWithRefresh(
+              (t) => http.get(uri, headers: ApiHeaders.authHeaders(t)),
+            )
+          : await http
+              .get(uri, headers: ApiHeaders.publicHeaders)
+              .timeout(const Duration(seconds: 20));
+
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        final text = res.body.trimLeft();
+        return {
+          "success": true,
+          "data": text.isNotEmpty && text.startsWith('{')
+              ? jsonDecode(text)
+              : {"raw": res.body},
+        };
       }
-      final headers =
-          useAuth ? ApiHeaders.authHeaders(token!) : ApiHeaders.publicHeaders;
-      print('AuthService GET $url headers: $headers');
-
-      var res = await http
-          .get(Uri.parse(url), headers: headers)
-          .timeout(const Duration(seconds: 20));
-
-      if (useAuth && res.statusCode == 401) {
-        final rTok = getRefreshToken();
-        if (rTok != null && rTok.isNotEmpty) {
-          final r = await refreshToken(rTok);
-          print('AuthService: GET 401 → refresh result: $r');
-          if (r['success'] == true) {
-            final data = r['data'] as Map<String, dynamic>;
-            final newAccess = data['access']?.toString();
-            final newRefresh = data['refresh']?.toString() ?? rTok;
-            if (newAccess != null) saveTokens(newAccess, newRefresh);
-            res = await http
-                .get(
-                  Uri.parse(url),
-                  headers: ApiHeaders.authHeaders(newAccess ?? ''),
-                )
-                .timeout(const Duration(seconds: 20));
-          } else {
-            logout();
-            return {
-              "success": false,
-              "message": "Not authenticated",
-              "code": 401,
-            };
-          }
-        }
-      }
-
-      print('AuthService GET $url status: ${res.statusCode} body: ${res.body}');
-      return _foldHttpResponse(res);
+      throw ErrorMapper.toAppException(res, statusCode: res.statusCode);
     } catch (e) {
-      return {"success": false, "message": e.toString()};
+      throw ErrorMapper.toAppException(e);
     }
   }
 
@@ -266,104 +267,67 @@ class AuthService {
     bool useAuth,
   ) async {
     try {
-      final token = useAuth ? await getValidAccessToken() : null;
-      if (useAuth && token == null) {
-        print('AuthService: PUT blocked — no valid access token for $url');
-        return {"success": false, "message": "Not authenticated", "code": 401};
+      final uri = Uri.parse(url);
+      final payload = jsonEncode(body);
+
+      final http.Response res = useAuth
+          ? await _authedOnceWithRefresh(
+              (t) => http.put(uri, headers: ApiHeaders.authHeaders(t), body: payload),
+            )
+          : await http
+              .put(uri, headers: ApiHeaders.publicHeaders, body: payload)
+              .timeout(const Duration(seconds: 20));
+
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        final text = res.body.trimLeft();
+        return {
+          "success": true,
+          "data": text.isEmpty ? {} : jsonDecode(text),
+        };
       }
-      final headers =
-          useAuth ? ApiHeaders.authHeaders(token!) : ApiHeaders.publicHeaders;
-      print('AuthService PUT $url headers: $headers body: $body');
-
-      var res = await http
-          .put(Uri.parse(url), headers: headers, body: jsonEncode(body))
-          .timeout(const Duration(seconds: 20));
-
-      if (useAuth && res.statusCode == 401) {
-        final rTok = getRefreshToken();
-        if (rTok != null && rTok.isNotEmpty) {
-          final r = await refreshToken(rTok);
-          print('AuthService: PUT 401 → refresh result: $r');
-          if (r['success'] == true) {
-            final data = r['data'] as Map<String, dynamic>;
-            final newAccess = data['access']?.toString();
-            final newRefresh = data['refresh']?.toString() ?? rTok;
-            if (newAccess != null) saveTokens(newAccess, newRefresh);
-            res = await http
-                .put(
-                  Uri.parse(url),
-                  headers: ApiHeaders.authHeaders(newAccess ?? ''),
-                  body: jsonEncode(body),
-                )
-                .timeout(const Duration(seconds: 20));
-          } else {
-            logout();
-            return {
-              "success": false,
-              "message": "Not authenticated",
-              "code": 401,
-            };
-          }
-        }
-      }
-
-      print('AuthService PUT $url status: ${res.statusCode} body: ${res.body}');
-      return _foldHttpResponse(res);
+      throw ErrorMapper.toAppException(res, statusCode: res.statusCode);
     } catch (e) {
-      return {"success": false, "message": e.toString()};
+      throw ErrorMapper.toAppException(e);
     }
   }
 
-  Map<String, dynamic> _foldHttpResponse(http.Response r) {
-    final bodyText = r.body;
-    if (bodyText.isEmpty || !bodyText.trimLeft().startsWith('{')) {
-      // Non-JSON: still surface status and raw body for debugging
-      final ok = r.statusCode >= 200 && r.statusCode < 300;
-      return {
-        "success": ok,
-        if (!ok) "message": "HTTP ${r.statusCode}",
-        "code": r.statusCode,
-        "raw": bodyText,
-      };
+  /// Performs an authenticated request; if the first attempt returns 401,
+  /// tries to refresh the token once and retries the original request.
+  Future<http.Response> _authedOnceWithRefresh(
+    Future<http.Response> Function(String token) doRequest,
+  ) async {
+    final token = await getValidAccessToken();
+    if (token == null) {
+      throw AppException.authExpired();
     }
-    final data = jsonDecode(bodyText);
-    final ok = r.statusCode >= 200 && r.statusCode < 300;
-    if (ok) return {"success": true, "data": data};
-    return {
-      "success": false,
-      "message": _parseError(data),
-      "code": r.statusCode,
-      "data": data,
-    };
-  }
 
-  // ---------- Error parse ----------
-  String _parseError(dynamic data) {
-    if (data is Map<String, dynamic>) {
-      if (data.containsKey('detail')) return data['detail'].toString();
-      if (data.containsKey('message')) return data['message'].toString();
-      return data.values
-          .map((e) => e is List ? e.join(', ') : e.toString())
-          .join(' | ');
+    var res = await doRequest(token).timeout(const Duration(seconds: 20));
+
+    if (res.statusCode == 401) {
+      final rTok = getRefreshToken();
+      if (rTok == null || rTok.isEmpty) {
+        await logout();
+        throw AppException.authExpired(original: res);
+      }
+
+      final r = await refreshToken(rTok);
+      if (r['success'] == true) {
+        final data = r['data'] as Map<String, dynamic>;
+        final newAccess = data['access']?.toString();
+        final newRefresh = data['refresh']?.toString() ?? rTok;
+        if (newAccess != null) {
+          await saveTokens(newAccess, newRefresh);
+          res = await doRequest(newAccess).timeout(const Duration(seconds: 20));
+        } else {
+          await logout();
+          throw AppException.authExpired(original: res);
+        }
+      } else {
+        await logout();
+        throw AppException.authExpired(original: res);
+      }
     }
-    return "Unknown error";
-  }
-
-  // ---------- Phone helpers ----------
-  String? validateBdPhone(String raw) {
-    final digits = raw.replaceAll(RegExp(r'\D'), '');
-    final okLocal = RegExp(r'^01\d{9}$').hasMatch(digits);
-    final okIntl = RegExp(r'^8801\d{9}$').hasMatch(digits);
-    if (okLocal || okIntl) return null;
-    return 'Enter a valid BD number (e.g., 017XXXXXXXX)';
-  }
-
-  String normalizeBdPhone(String raw) {
-    final digits = raw.replaceAll(RegExp(r'\D'), '');
-    if (digits.startsWith('880') && digits.length == 13) {
-      return '0${digits.substring(3)}'; // 88017... -> 017...
-    }
-    if (digits.startsWith('01') && digits.length == 11) return digits;
-    return raw.trim();
+    return res;
+    // All non-2xx errors are handled by callers via ErrorMapper in _post/_get/_put.
   }
 }

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:weight_calculator/services/auth_service.dart';
+import 'package:weight_calculator/utils/phone_number_helper.dart';
 
 class VerifyOtpScreen extends StatefulWidget {
   const VerifyOtpScreen({super.key});
@@ -81,7 +82,7 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
     setState(() => _submitting = true);
     try {
       final res = await _auth.verifyOtpAndSetPassword(
-        phone: _auth.normalizeBdPhone(_phone),
+        phone: normalizeBdPhone(_phone),
         otp: _otpController.text.trim(),
         newPassword: _passController.text,
         confirmNewPassword: _confirmController.text,
@@ -120,7 +121,7 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
 
     setState(() => _resendCount++);
     try {
-      final res = await _auth.requestOtp(_auth.normalizeBdPhone(_phone));
+      final res = await _auth.requestOtp(normalizeBdPhone(_phone));
       if (res['success'] == true) {
         final data = res['data'] as Map<String, dynamic>;
         final maybeOtp = data['otp'];

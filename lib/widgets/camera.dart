@@ -60,7 +60,16 @@ class _CameraViewState extends State<Camera> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text("Capture Cow Photo")),
+      appBar: AppBar(
+        title: Text(
+          "Capture Cow Photo",
+          style: TextStyle(
+            color: const Color.fromARGB(255, 1, 119, 5),
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        centerTitle: true,
+      ),
       body: isCameraReady
           ? Stack(
               children: [

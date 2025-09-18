@@ -27,7 +27,7 @@ class AboutPage extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Image.asset('assets/weight-machine.png', height: 180),
+              Image.asset('assets/weight-machine.jpg', height: 180),
               const SizedBox(height: 24),
 
               const SelectableText(

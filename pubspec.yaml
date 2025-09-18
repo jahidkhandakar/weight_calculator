@@ -36,6 +36,7 @@ dependencies:
   cupertino_icons: ^1.0.8
   get: ^4.7.2
   image_picker: ^1.1.2
+  image: ^4.2.0
   dio: ^5.8.0+1
   camera: ^0.11.1
   path_provider: ^2.1.5
@@ -50,7 +51,6 @@ dependencies:
   package_info_plus: ^8.3.1
   flutter_downloader: ^1.11.6
   permission_handler: ^11.3.1
-  external_path: ^1.0.3 
 
 flutter_launcher_icons:
   android: true

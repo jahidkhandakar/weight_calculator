@@ -3,13 +3,23 @@ import 'package:get/get.dart';
 import '../../controllers/auth_controller.dart';
 import '../../../widgets/primary_button.dart';
 
-class LoginScreen extends StatelessWidget {
+class LoginScreen extends StatefulWidget {
+  LoginScreen({super.key});
+
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
+
   final _phoneController = TextEditingController();
+
   final _passwordController = TextEditingController();
+
   final AuthController authController = Get.put(AuthController());
 
-  LoginScreen({super.key});
+  bool _passwordVisible = false;
 
   void _login() {
     if (_formKey.currentState!.validate()) {
@@ -24,8 +34,10 @@ class LoginScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Adarsha Pranisheba',
-            style: TextStyle(color: Colors.white)),
+        title: const Text(
+          'Adarsha Pranisheba',
+          style: TextStyle(color: Colors.white),
+        ),
         backgroundColor: const Color.fromARGB(255, 1, 104, 51),
         centerTitle: true,
       ),
@@ -37,11 +49,14 @@ class LoginScreen extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Text('Welcome Back',
-                    style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                        color: Color.fromARGB(255, 1, 104, 51))),
+                const Text(
+                  'Welcome Back',
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: Color.fromARGB(255, 1, 104, 51),
+                  ),
+                ),
                 const SizedBox(height: 32),
                 TextFormField(
                   controller: _phoneController,
@@ -51,20 +66,39 @@ class LoginScreen extends StatelessWidget {
                     border: OutlineInputBorder(),
                     prefixIcon: Icon(Icons.phone),
                   ),
-                  validator: (value) =>
-                      (value == null || value.isEmpty) ? 'Enter phone' : null,
+                  validator:
+                      (value) =>
+                          (value == null || value.isEmpty)
+                              ? 'Enter phone'
+                              : null,
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _passwordController,
-                  obscureText: true,
-                  decoration: const InputDecoration(
+                  obscureText: !_passwordVisible,
+                  decoration: InputDecoration(
                     labelText: 'Password',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.lock),
+                    border: const OutlineInputBorder(),
+                    prefixIcon: const Icon(Icons.lock),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _passwordVisible
+                            ? Icons.visibility
+                            : Icons.visibility_off,
+                        color: Colors.grey,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _passwordVisible = !_passwordVisible;
+                        });
+                      },
+                    ),
                   ),
-                  validator: (value) =>
-                      (value == null || value.length < 6) ? 'Min 6 characters' : null,
+                  validator:
+                      (value) =>
+                          (value == null || value.length < 8)
+                              ? 'Min 8 characters'
+                              : null,
                 ),
                 const SizedBox(height: 2),
                 //*_______________Forget Password_________________
@@ -74,32 +108,39 @@ class LoginScreen extends StatelessWidget {
                     onPressed: () => Get.toNamed('/request_otp'),
                     child: const Text(
                       'Forgot Password?',
-                      style: TextStyle(
-                        color: Color.fromARGB(255, 1, 104, 51),
-                      ),
+                      style: TextStyle(color: Color.fromARGB(255, 1, 104, 51)),
                     ),
                   ),
                 ),
                 //*_______________________________________________
                 const SizedBox(height: 10),
-                Obx(() => SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: authController.isLoading.value ? null : _login,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor:
-                              const Color.fromARGB(255, 1, 104, 51),
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
+                Obx(
+                  () => SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: authController.isLoading.value ? null : _login,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color.fromARGB(255, 1, 104, 51),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                        child: authController.isLoading.value
-                            ? const CircularProgressIndicator(color: Colors.white)
-                            : const Text('Log In',
-                                style: TextStyle(fontSize: 18, color: Colors.white)),
                       ),
-                    )),
+                      child:
+                          authController.isLoading.value
+                              ? const CircularProgressIndicator(
+                                color: Colors.white,
+                              )
+                              : const Text(
+                                'Log In',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  color: Colors.white,
+                                ),
+                              ),
+                    ),
+                  ),
+                ),
                 const SizedBox(height: 16),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
