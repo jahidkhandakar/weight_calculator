@@ -28,7 +28,7 @@ class AboutPage extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Image.asset('assets/weight-machine.jpg', height: 180),
-              const SizedBox(height: 24),
+              const SizedBox(height: 10),
 
               const SelectableText(
                 '‘Cattle Weight Calculator’ অ্যাপ একটি ছবির মাধ্যমে '
@@ -41,7 +41,7 @@ class AboutPage extends StatelessWidget {
                 ),
               ),
 
-              const SizedBox(height: 36),
+              const SizedBox(height: 10),
               Text(
                 'Design and developed by',
                 style: TextStyle(
@@ -49,10 +49,13 @@ class AboutPage extends StatelessWidget {
                   color: Colors.grey.shade700,
                 ),
               ),
+              const SizedBox(height: 0),
 
-              const SizedBox(height: 12),
+              Image.asset('assets/pranisheba-tech-logo.png', height: 100),
 
-              Image.asset('assets/apsLogo.ico'),
+              const SizedBox(height: 6),
+
+              Image.asset('assets/apsLogo.ico', height: 120),
 
               const SelectableText(
                 'Adorsho PraniSheba LTD',
@@ -65,7 +68,7 @@ class AboutPage extends StatelessWidget {
                 ),
               ),
 
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
 
               const SelectableText(
                 'Haque Tower (9th Floor) JA-28/8/D,\nMohakhali C/A',
