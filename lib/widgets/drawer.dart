@@ -4,6 +4,7 @@ import 'package:weight_calculator/services/auth_service.dart';
 import 'package:weight_calculator/utils/ui/snackbar_service.dart';
 import 'package:weight_calculator/utils/errors/app_exception.dart';
 import '../mvc/controllers/user_controller.dart';
+import '../mvc/views/pages/aruco_marker_download_page.dart';
 
 class AppDrawer extends StatefulWidget {
   const AppDrawer({Key? key}) : super(key: key);
@@ -141,6 +142,22 @@ class _AppDrawerState extends State<AppDrawer> {
                   },
                 ),
                 ListTile(
+                  leading: const Icon(Icons.picture_as_pdf),
+                  title: const Text(
+                    'Download ArUco Marker',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.5,
+                      color: Colors.black87,
+                      ),
+                    ),
+                  onTap: () {
+                    Get.back(); // close the drawer
+                    Get.to(() => const ArucoMarkerDownloadPage());
+                  },
+                ),
+                ListTile(
                   leading: const Icon(Icons.local_offer, color: Colors.green),
                   title: const Text(
                     'OFFER',
@@ -182,7 +199,7 @@ class _AppDrawerState extends State<AppDrawer> {
                 ),
                 const Divider(),
 
-                // LOGOUT
+                //* LOGOUT
                 ListTile(
                   leading: const Icon(Icons.logout, color: Colors.red),
                   title: const Text(

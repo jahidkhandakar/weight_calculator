@@ -6,6 +6,7 @@ import 'package:camera/camera.dart';
 import 'package:shurjopay/utilities/functions.dart';
 // Controllers / Services
 import 'package:weight_calculator/mvc/controllers/auth_controller.dart';
+import 'package:weight_calculator/mvc/views/pages/aruco_marker_download_page.dart';
 import 'package:weight_calculator/services/auth_service.dart';
 // Screens & Pages
 import 'package:weight_calculator/mvc/views/screens/login_screen.dart';
@@ -99,6 +100,7 @@ class WeightCalculator extends StatelessWidget {
         GetPage(name: '/request_otp', page: () => RequestOtpScreen()),
         GetPage(name: '/verify_otp', page: () => VerifyOtpScreen()),
         GetPage(name: '/change_pass', page: () => ChangePasswordScreen()),
+        GetPage(name: '/aruco_pdf', page: () => ArucoMarkerDownloadPage()),
       ],
     );
   }

@@ -51,6 +51,9 @@ dependencies:
   package_info_plus: ^8.3.1
   flutter_downloader: ^1.11.6
   permission_handler: ^11.3.1
+  open_filex: ^4.3.2
+  share_plus: ^10.0.0
+  printing: ^5.13.1
 
 flutter_launcher_icons:
   android: true
@@ -89,6 +92,8 @@ flutter:
     - assets/icons/google.png
     - assets/weight-machine.jpg
     - assets/pranisheba-tech-logo.png
+    - assets/pranisheba-aruco-marker.pdf
+    - assets/aruco-marker.jpg
   #   - images/a_dot_burr.jpeg
   #   - images/a_dot_ham.jpeg
 
