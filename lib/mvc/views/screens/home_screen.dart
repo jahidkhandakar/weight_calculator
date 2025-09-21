@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:image/image.dart' as img;
+import 'package:weight_calculator/widgets/user_guide_widget.dart';
 
 import '../../controllers/cow_controller.dart';
 import '../../controllers/user_controller.dart'; // for refreshing Profile tab
@@ -35,7 +36,8 @@ class _HomeScreenState extends State<HomeScreen> {
   //* ------------------- compression config -----------------------
   static const int _kTargetBytes = 500 * 1024; // 500 KB
   static const int _kMaxDimension = 1400; // cap width/height on first pass
-  static const int _kMinDimension = 640;  // don't go smaller than this unless necessary
+  static const int _kMinDimension =
+      640; // don't go smaller than this unless necessary
   static const List<int> _kQualities = [90, 80, 70, 60, 50, 40, 30];
 
   @override
@@ -86,72 +88,74 @@ class _HomeScreenState extends State<HomeScreen> {
   // 4) encode JPG with decreasing quality until <= _kTargetBytes
   // 5) if still too big, reduce dimensions iteratively (not below _kMinDimension)
   Future<File> _prepareImageForUpload(File original) async {
-  try {
-    final bytes = await original.readAsBytes();
+    try {
+      final bytes = await original.readAsBytes();
 
-    // Decode (supports most formats)
-    final decoded0 = img.decodeImage(bytes);
-    if (decoded0 == null) {
-      // If we can't decode, just return the original
-      return original;
-    }
+      // Decode (supports most formats)
+      final decoded0 = img.decodeImage(bytes);
+      if (decoded0 == null) {
+        // If we can't decode, just return the original
+        return original;
+      }
 
-    // From here use a non-null image variable
-    var image = decoded0;
+      // From here use a non-null image variable
+      var image = decoded0;
 
-    // Apply rotation
-    final turns = _quarterTurns % 4;
-    if (turns != 0) {
-      image = img.copyRotate(image, angle: (turns * 90).toDouble());
-    }
+      // Apply rotation
+      final turns = _quarterTurns % 4;
+      if (turns != 0) {
+        image = img.copyRotate(image, angle: (turns * 90).toDouble());
+      }
 
-    // Start from a capped size if very large
-    image = _resizeIfNeeded(image, _kMaxDimension);
+      // Start from a capped size if very large
+      image = _resizeIfNeeded(image, _kMaxDimension);
 
-    // Try encoding under target with current dimensions
-    Uint8List? out = _encodeUnderSize(
-      image,
-      targetBytes: _kTargetBytes,
-      qualities: _kQualities,
-    );
+      // Try encoding under target with current dimensions
+      Uint8List? out = _encodeUnderSize(
+        image,
+        targetBytes: _kTargetBytes,
+        qualities: _kQualities,
+      );
 
-    if (out == null) {
-      // If still too big, iteratively scale down and retry
-      var currentW = image.width;
-      var currentH = image.height;
+      if (out == null) {
+        // If still too big, iteratively scale down and retry
+        var currentW = image.width;
+        var currentH = image.height;
 
-      while (out == null && (currentW > _kMinDimension || currentH > _kMinDimension)) {
-        final nextW = (currentW * 0.85).round();
-        final nextH = (currentH * 0.85).round();
-        image = img.copyResize(image, width: nextW, height: nextH);
-        currentW = image.width;
-        currentH = image.height;
+        while (out == null &&
+            (currentW > _kMinDimension || currentH > _kMinDimension)) {
+          final nextW = (currentW * 0.85).round();
+          final nextH = (currentH * 0.85).round();
+          image = img.copyResize(image, width: nextW, height: nextH);
+          currentW = image.width;
+          currentH = image.height;
 
-        out = _encodeUnderSize(
-          image,
-          targetBytes: _kTargetBytes,
-          qualities: _kQualities,
+          out = _encodeUnderSize(
+            image,
+            targetBytes: _kTargetBytes,
+            qualities: _kQualities,
+          );
+        }
+
+        // If STILL null, just encode at the lowest quality tried
+        out ??= Uint8List.fromList(
+          img.encodeJpg(image, quality: _kQualities.last),
         );
       }
 
-      // If STILL null, just encode at the lowest quality tried
-      out ??= Uint8List.fromList(img.encodeJpg(image, quality: _kQualities.last));
+      final tempDir = await getTemporaryDirectory();
+      final outPath = p.join(
+        tempDir.path,
+        'upload_${DateTime.now().millisecondsSinceEpoch}.jpg',
+      );
+      final outFile = File(outPath);
+      await outFile.writeAsBytes(out, flush: true);
+      return outFile;
+    } catch (_) {
+      // If anything fails, just upload original to avoid blocking user
+      return original;
     }
-
-    final tempDir = await getTemporaryDirectory();
-    final outPath = p.join(
-      tempDir.path,
-      'upload_${DateTime.now().millisecondsSinceEpoch}.jpg',
-    );
-    final outFile = File(outPath);
-    await outFile.writeAsBytes(out, flush: true);
-    return outFile;
-  } catch (_) {
-    // If anything fails, just upload original to avoid blocking user
-    return original;
   }
-}
-
 
   img.Image _resizeIfNeeded(img.Image src, int maxDim) {
     final w = src.width;
@@ -354,13 +358,19 @@ class _HomeScreenState extends State<HomeScreen> {
                                   }
                                   await _uploadImage();
                                 },
-                                icon: const Icon(Icons.analytics, color: Colors.white),
+                                icon: const Icon(
+                                  Icons.analytics,
+                                  color: Colors.white,
+                                ),
                                 label: const Text(
                                   "Measure Weight",
                                   style: TextStyle(color: Colors.white),
                                 ),
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: left > 0 ? Colors.green[900] : Colors.grey,
+                                  backgroundColor:
+                                      left > 0
+                                          ? Colors.green[900]
+                                          : Colors.grey,
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 20,
                                     vertical: 14,
@@ -383,7 +393,26 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
 
-              // ----- Camera & Gallery row
+              //*_______________User Guide (conditional)________________
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 250),
+                child:
+                    (() {
+                      // show guide only when: no selected image, no result, not loading
+                      final showGuide =
+                          _selectedImage == null && cow == null && !isLoading;
+                      if (!showGuide) return const SizedBox.shrink();
+                      return Padding(
+                        key: const ValueKey('user_guide'),
+                        padding: const EdgeInsets.all(28),
+                        child: UserGuideWidget(),
+                      );
+                    })(),
+              ),
+              const SizedBox(height: 10),
+              //*_______________________________________________________
+
+              //* ----- Camera & Gallery row
               Container(
                 padding: const EdgeInsets.symmetric(vertical: 1),
                 child: Row(
@@ -414,7 +443,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
 
-          // --------- Overlay Loader -----------
+          //* --------- Overlay Loader -----------
           if (controller.isLoading.value)
             Container(
               color: Colors.black.withOpacity(0.5),

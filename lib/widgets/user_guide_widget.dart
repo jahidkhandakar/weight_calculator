@@ -10,12 +10,12 @@ class UserGuideWidget extends StatelessWidget {
       elevation: 3,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(10),
         child: Column(
           children: [
             ElevatedButton.icon(
               icon: const Icon(Icons.menu_book),
-              label: const Text('কিভাবে ব্যবহার করবেন (How-to Guide)'),
+              label: const Text('কিভাবে APP ব্যবহার করবেন'),
               style: ElevatedButton.styleFrom(
                 minimumSize: const Size(double.infinity, 48),
                 backgroundColor: Colors.green[800],
