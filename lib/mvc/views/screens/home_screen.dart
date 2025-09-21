@@ -295,7 +295,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
                         const SizedBox(height: 2),
 
-                        // ----- Prediction result
+                        // *----------- Prediction result------------
                         if (cow != null) ...[
                           Text(
                             "পরিমাপ করা ওজন: ${cow.weight.toStringAsFixed(2)} kg",
@@ -304,14 +304,14 @@ class _HomeScreenState extends State<HomeScreen> {
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-                          const SizedBox(height: 8),
-                          Text(
-                            "Breed(জাত): ${cow.breed}",
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
+                          // const SizedBox(height: 8),
+                          // Text(
+                          //   "Breed(জাত): ${cow.breed}",
+                          //   style: const TextStyle(
+                          //     fontSize: 18,
+                          //     fontWeight: FontWeight.bold,
+                          //   ),
+                          // ),
                         ],
 
                         const SizedBox(height: 8),
@@ -376,7 +376,6 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                             ],
                           ),
-
                         const SizedBox(height: 60),
                       ],
                     ),
@@ -415,7 +414,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
 
-          // ----- Overlay Loader
+          // --------- Overlay Loader -----------
           if (controller.isLoading.value)
             Container(
               color: Colors.black.withOpacity(0.5),
@@ -500,8 +499,4 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
-}
-
-extension _IfEmptyExt on String {
-  String ifEmpty(String Function() orElse) => isEmpty ? orElse() : this;
 }

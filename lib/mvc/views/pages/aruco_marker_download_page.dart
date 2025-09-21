@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:open_filex/open_filex.dart';
@@ -92,7 +91,7 @@ class _ArucoMarkerDownloadPageState extends State<ArucoMarkerDownloadPage> {
             ),
             const SizedBox(height: 50),
 
-            //* Big buttons
+            //* -----------------Big buttons-----------------//
             _ActionButton(
               icon: Icons.open_in_new,
               label: 'Open',
@@ -119,7 +118,7 @@ class _ArucoMarkerDownloadPageState extends State<ArucoMarkerDownloadPage> {
               children: const [
                 Icon(Icons.picture_as_pdf),
                 SizedBox(width: 8),
-                Text('File: pranisheba-aruco-marker.pdf'),
+                Text('File: Aruco_Marker.pdf'),
               ],
             ),
             const SizedBox(height: 16),

@@ -7,6 +7,8 @@ import 'package:shurjopay/utilities/functions.dart';
 // Controllers / Services
 import 'package:weight_calculator/mvc/controllers/auth_controller.dart';
 import 'package:weight_calculator/mvc/views/pages/aruco_marker_download_page.dart';
+import 'package:weight_calculator/mvc/views/pages/faq_page.dart';
+import 'package:weight_calculator/mvc/views/pages/pricing_policy_page.dart';
 import 'package:weight_calculator/services/auth_service.dart';
 // Screens & Pages
 import 'package:weight_calculator/mvc/views/screens/login_screen.dart';
@@ -53,8 +55,6 @@ Future<void> main() async {
 
   // Decide initial route: go to /home only if we have a token
   final token = GetStorage().read('access_token')?.toString();
-  final initialRoute =
-      (token != null && token.isNotEmpty) ? '/home' : '/login';
 
   runApp(WeightCalculator());
 }
@@ -101,6 +101,8 @@ class WeightCalculator extends StatelessWidget {
         GetPage(name: '/verify_otp', page: () => VerifyOtpScreen()),
         GetPage(name: '/change_pass', page: () => ChangePasswordScreen()),
         GetPage(name: '/aruco_pdf', page: () => ArucoMarkerDownloadPage()),
+        GetPage(name: '/faq', page: () => FaqPage()),
+        GetPage(name: '/pricing', page: () => PricingPolicyPage()),
       ],
     );
   }

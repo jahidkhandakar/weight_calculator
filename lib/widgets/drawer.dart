@@ -4,7 +4,6 @@ import 'package:weight_calculator/services/auth_service.dart';
 import 'package:weight_calculator/utils/ui/snackbar_service.dart';
 import 'package:weight_calculator/utils/errors/app_exception.dart';
 import '../mvc/controllers/user_controller.dart';
-import '../mvc/views/pages/aruco_marker_download_page.dart';
 
 class AppDrawer extends StatefulWidget {
   const AppDrawer({Key? key}) : super(key: key);
@@ -25,6 +24,16 @@ class _AppDrawerState extends State<AppDrawer> {
             ? Get.find<UserController>()
             : Get.put(UserController());
   }
+
+    final List<String> drawerItems = [
+    "About",
+    "How to use this App",
+    "About ArUco Marker ",
+    "How to download ArUco Marker",
+    "FAQ",
+    "Pricing Policy",
+    "OFFER",
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -83,8 +92,8 @@ class _AppDrawerState extends State<AppDrawer> {
               children: [
                 ListTile(
                   leading: const Icon(Icons.info_outline),
-                  title: const Text(
-                    'About',
+                  title: Text(
+                    drawerItems[0],
                     style: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w600,
@@ -103,8 +112,8 @@ class _AppDrawerState extends State<AppDrawer> {
                 ),
                 ListTile(
                   leading: const Icon(Icons.menu_book),
-                  title: const Text(
-                    'How To Guide',
+                  title: Text(
+                    drawerItems[1],
                     style: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w600,
@@ -123,8 +132,8 @@ class _AppDrawerState extends State<AppDrawer> {
                 ),
                 ListTile(
                   leading: const Icon(Icons.qr_code),
-                  title: const Text(
-                    'ArUco Marker',
+                  title: Text(
+                    drawerItems[2],
                     style: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w600,
@@ -143,24 +152,68 @@ class _AppDrawerState extends State<AppDrawer> {
                 ),
                 ListTile(
                   leading: const Icon(Icons.picture_as_pdf),
-                  title: const Text(
-                    'Download ArUco Marker',
+                  title: Text(
+                    drawerItems[3],
                     style: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w600,
                       letterSpacing: 0.5,
                       color: Colors.black87,
-                      ),
                     ),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 2,
+                  ),
                   onTap: () {
                     Get.back(); // close the drawer
-                    Get.to(() => const ArucoMarkerDownloadPage());
+                    Get.toNamed('/aruco_pdf');
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.help_outline),
+                  title: Text(
+                    drawerItems[4],
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.5,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 2,
+                  ),
+                  onTap: () {
+                    Get.back(); // close the drawer
+                    Get.toNamed('/faq');
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.attach_money),
+                  title: Text(
+                    drawerItems[5],
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.5,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 2,
+                  ),
+                  onTap: () {
+                    Get.back(); // close the drawer
+                    Get.toNamed('/pricing');
                   },
                 ),
                 ListTile(
                   leading: const Icon(Icons.local_offer, color: Colors.green),
-                  title: const Text(
-                    'OFFER',
+                  title: Text(
+                    drawerItems[6],
                     style: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.bold,
@@ -197,76 +250,61 @@ class _AppDrawerState extends State<AppDrawer> {
                     );
                   },
                 ),
-                const Divider(),
-
-                //* LOGOUT
-                ListTile(
-                  leading: const Icon(Icons.logout, color: Colors.red),
-                  title: const Text(
-                    'Logout',
-                    style: TextStyle(
-                      color: Colors.red,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  onTap: () async {
-                    Get.back();
-                    final confirm = await showDialog<bool>(
-                      context: context,
-                      builder:
-                          (context) => AlertDialog(
-                            title: const Text('Are you sure to log out?'),
-                            content: const Text(
-                              'You will be logged out of the app.',
-                            ),
-                            actions: [
-                              TextButton(
-                                onPressed:
-                                    () => Navigator.of(context).pop(false),
-                                child: const Text(
-                                  'Cancel',
-                                  style: TextStyle(
-                                    color: Color.fromARGB(255, 1, 119, 5),
-                                  ),
-                                ),
-                              ),
-                              TextButton(
-                                onPressed:
-                                    () => Navigator.of(context).pop(true),
-                                child: const Text(
-                                  'OK',
-                                  style: TextStyle(
-                                    color: Color.fromARGB(255, 1, 119, 5),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                    );
-                    if (confirm == true) {
-                      final authService = AuthService();
-                      await authService.logout();
-                      Get.offAllNamed('/login');
-                      SnackbarService.I.show(
-                        AppException(
-                          title: "You are logged out from the app!",
-                          code: "logout_success",
-                          userMessage: "See you again!",
-                          severity: ErrorSeverity.info,
-                        ),
-                      );
-                    }
-                  },
-                ),
               ],
             ),
           ),
-
+          //*_______________________LOGOUT_________________________//
           const Divider(),
           ListTile(
-            leading: const Icon(Icons.close),
-            title: const Text('Close'),
-            onTap: () => Get.back(),
+            leading: const Icon(Icons.logout, color: Colors.red),
+            title: const Text(
+              'Logout',
+              style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+            ),
+            onTap: () async {
+              Get.back();
+              final confirm = await showDialog<bool>(
+                context: context,
+                builder:
+                    (context) => AlertDialog(
+                      title: const Text('Are you sure to log out?'),
+                      content: const Text('You will be logged out of the app.'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(false),
+                          child: const Text(
+                            'Cancel',
+                            style: TextStyle(
+                              color: Color.fromARGB(255, 1, 119, 5),
+                            ),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(true),
+                          child: const Text(
+                            'OK',
+                            style: TextStyle(
+                              color: Color.fromARGB(255, 1, 119, 5),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+              );
+              if (confirm == true) {
+                final authService = AuthService();
+                await authService.logout();
+                Get.offAllNamed('/login');
+                SnackbarService.I.show(
+                  AppException(
+                    title: "You are logged out from the app!",
+                    code: "logout_success",
+                    userMessage: "See you again!",
+                    severity: ErrorSeverity.info,
+                  ),
+                );
+              }
+            },
           ),
         ],
       ),
