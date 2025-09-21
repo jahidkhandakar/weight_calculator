@@ -37,12 +37,11 @@ class _RequestOtpScreenState extends State<RequestOtpScreen> {
       final res = await _auth.requestOtp(normalizedPhone);
 
       if (res['success'] == true) {
-        final data = res['data'] as Map<String, dynamic>;
-        final maybeOtp = data['otp']; // test env only
         Get.snackbar(
-          'OTP Sent',
-          'Please check your SMS${maybeOtp != null ? " (Test OTP: $maybeOtp)" : ""}',
-        );
+          'OTP Sent', 'Please check your SMS',
+          backgroundColor: Colors.green[600],
+          colorText: Colors.white,
+          );
 
         // Pass normalized phone to verify screen
         Get.toNamed('/verify_otp', arguments: {'phone': normalizedPhone});
@@ -50,11 +49,11 @@ class _RequestOtpScreenState extends State<RequestOtpScreen> {
         Get.snackbar(
           'Failed',
           res['message']?.toString() ?? 'Could not send OTP',
-          backgroundColor: Colors.red[100],
+          backgroundColor: Color.fromARGB(255, 239, 5, 28),
         );
       }
     } catch (e) {
-      Get.snackbar('Error', e.toString(), backgroundColor: Colors.red[100]);
+      Get.snackbar('Error', e.toString(), backgroundColor: const Color.fromARGB(255, 239, 5, 28));
     } finally {
       if (mounted) setState(() => _submitting = false);
     }

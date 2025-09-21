@@ -2,12 +2,11 @@
 import 'dart:convert';
 import 'package:get_storage/get_storage.dart';
 import 'package:http/http.dart' as http;
-
 import 'package:weight_calculator/utils/phone_number_helper.dart';
 import '../utils/api.dart';
-
 import 'package:weight_calculator/utils/errors/app_exception.dart';
 import 'package:weight_calculator/utils/errors/error_mapper.dart';
+import 'sms_gateway_service.dart';
 
 class AuthService {
   final GetStorage storage = GetStorage();
@@ -21,16 +20,12 @@ class AuthService {
     required String password,
     required String confirmPassword,
   }) {
-    return _post(
-      Api.register,
-      {
-        "username": phone, // keep as-is if backend expects username=phone
-        "name": name,
-        "password": password,
-        "confirm_password": confirmPassword,
-      },
-      false,
-    );
+    return _post(Api.register, {
+      "username": phone, // keep as-is if backend expects username=phone
+      "name": name,
+      "password": password,
+      "confirm_password": confirmPassword,
+    }, false);
   }
 
   /// Login with phone/password and persist tokens on success
@@ -38,14 +33,10 @@ class AuthService {
     required String phone,
     required String password,
   }) async {
-    final res = await _post(
-      Api.login,
-      {
-        "username": phone, // or normalizeBdPhone(phone) if backend expects it
-        "password": password,
-      },
-      false,
-    );
+    final res = await _post(Api.login, {
+      "username": phone, // or normalizeBdPhone(phone) if backend expects it
+      "password": password,
+    }, false);
 
     if (res["success"] == true) {
       final data = res["data"] as Map<String, dynamic>;
@@ -80,52 +71,128 @@ class AuthService {
     final body = {
       "old_password": oldPassword,
       "new_password": newPassword,
-      if (confirmNewPassword != null) "confirm_new_password": confirmNewPassword,
+      if (confirmNewPassword != null)
+        "confirm_new_password": confirmNewPassword,
     };
     return _put(Api.changePassword, body, true);
   }
 
-  /// Request OTP for password reset (public)
-  Future<Map<String, dynamic>> requestOtp(String phone) {
-    return _post(
-      Api.requestOtp,
-      {"phone_number": normalizeBdPhone(phone)},
-      false,
-    );
+  //* Request OTP (public)
+  // Request OTP from backend, then send it via ReveSMS gateway.
+  // Returns { success: bool, message: String } (does not expose OTP in production)
+  Future<Map<String, dynamic>> requestOtp(String rawPhone) async {
+    // 1) Normalize + validate BD phone (expects 01XXXXXXXXX for SMS gateway)
+    final phone = normalizeBdPhone(rawPhone).trim();
+    if (phone.isEmpty) {
+      return {"success": false, "message": "Phone number is required"};
+    }
+
+    try {
+      // 2) Ask your backend for an OTP
+      final res = await http.post(
+        Uri.parse(Api.requestOtp),
+        headers: {
+          "Content-Type": "application/json",
+          "X-API-Key": Api.apiKey, // REQUIRED by your backend
+        },
+        body: jsonEncode({
+          "phone_number": phone,
+        }), // backend expects "phone_number"
+      );
+
+      // 3) Safely decode body (even on non-200)
+      Map<String, dynamic> data;
+      try {
+        data = jsonDecode(res.body) as Map<String, dynamic>;
+      } catch (_) {
+        data = {"raw": res.body};
+      }
+
+      if (res.statusCode != 200) {
+        final msg =
+            (data["detail"] ?? data["message"] ?? "Failed to request OTP")
+                .toString();
+        return {"success": false, "message": msg};
+      }
+
+      // 4) Extract OTP from backend
+      final otp = (data["otp"] ?? "").toString();
+      if (otp.isEmpty) {
+        return {"success": false, "message": "OTP not returned by server"};
+      }
+
+      // 5) Send OTP via ReveSMS (no X-API-Key header here)
+      final sms = await SmsGatewayService.sendOtp(msisdn: phone, otp: otp);
+      if (sms["success"] != true) {
+        // Bubble up the exact SMS gateway reason (e.g., "Inappropriate request parameter")
+        final msg = (sms["message"] ?? "Failed to send OTP via SMS").toString();
+        return {"success": false, "message": "SMS Gateway error: $msg"};
+      }
+
+      // 6) Optional: persist cooldown metadata
+      storage.write('last_otp_phone', phone);
+      storage.write('last_otp_sent_at', DateTime.now().millisecondsSinceEpoch);
+
+      return {
+        "success": true,
+        "message": (data["message"] ?? "OTP sent").toString(),
+        "data": {"phone_number": phone},
+      };
+    } catch (e) {
+      return {"success": false, "message": e.toString()};
+    }
   }
 
-  /// Verify OTP (public)
+  //* Verify OTP (public)
   Future<Map<String, dynamic>> verifyOtp({
     required String phone,
     required String otp,
   }) {
-    return _post(
-      Api.verifyOtp,
-      {
-        "phone_number": normalizeBdPhone(phone),
-        "otp": otp,
-      },
-      false,
-    );
+    return _post(Api.verifyOtp, {
+      "phone_number": normalizeBdPhone(phone),
+      "otp": otp,
+    }, false);
   }
 
-  /// Verify OTP and set new password (public)
+  //* Verify OTP + set new password
   Future<Map<String, dynamic>> verifyOtpAndSetPassword({
     required String phone,
     required String otp,
     required String newPassword,
     required String confirmNewPassword,
-  }) {
-    return _post(
-      Api.verifyOtp, // adjust if you have a different endpoint
-      {
-        "phone_number": normalizeBdPhone(phone),
-        "otp": otp,
-        "new_password": newPassword,
-        "confirm_new_password": confirmNewPassword,
-      },
-      false,
-    );
+  }) async {
+    try {
+      final res = await http.post(
+        Uri.parse(Api.verifyOtp),
+        headers: {"Content-Type": "application/json", "X-API-Key": Api.apiKey},
+        body: jsonEncode({
+          "phone_number": phone,
+          "otp": otp,
+          "new_password": newPassword,
+          "confirm_new_password": confirmNewPassword,
+        }),
+      );
+      final data = jsonDecode(res.body);
+      if (res.statusCode == 200) {
+        // save tokens if provided
+        if (data["access"] != null)
+          storage.write('access_token', data["access"]);
+        if (data["refresh"] != null)
+          storage.write('refresh_token', data["refresh"]);
+        return {
+          "success": true,
+          "message": data["message"] ?? "Verified",
+          "data": data,
+        };
+      } else {
+        return {
+          "success": false,
+          "message": data["detail"] ?? "Verification failed",
+        };
+      }
+    } catch (e) {
+      return {"success": false, "message": e.toString()};
+    }
   }
 
   // ------------------------ Token Utilities ------------------------ //
@@ -152,8 +219,9 @@ class AuthService {
     if (access != null) {
       try {
         final parts = access.split('.');
-        final payload =
-            jsonDecode(utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))));
+        final payload = jsonDecode(
+          utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))),
+        );
         final exp = (payload['exp'] as num).toInt();
         final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
         final left = exp - now;
@@ -170,7 +238,9 @@ class AuthService {
 
       final result = await refreshToken(refresh);
       // ignore: avoid_print
-      print("[auth] refresh result: ${result['success']} ${result['data'] ?? result['message']}");
+      print(
+        "[auth] refresh result: ${result['success']} ${result['data'] ?? result['message']}",
+      );
 
       if (result['success'] == true) {
         final data = result['data'] as Map<String, dynamic>;
@@ -192,8 +262,9 @@ class AuthService {
     try {
       final parts = token.split('.');
       if (parts.length != 3) return true;
-      final payload =
-          jsonDecode(utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))));
+      final payload = jsonDecode(
+        utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))),
+      );
       final exp = (payload['exp'] as int);
       final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
       return now + leewaySeconds >= exp;
@@ -213,20 +284,22 @@ class AuthService {
       final uri = Uri.parse(url);
       final payload = jsonEncode(body);
 
-      final http.Response res = useAuth
-          ? await _authedOnceWithRefresh(
-              (t) => http.post(uri, headers: ApiHeaders.authHeaders(t), body: payload),
-            )
-          : await http
-              .post(uri, headers: ApiHeaders.publicHeaders, body: payload)
-              .timeout(const Duration(seconds: 20));
+      final http.Response res =
+          useAuth
+              ? await _authedOnceWithRefresh(
+                (t) => http.post(
+                  uri,
+                  headers: ApiHeaders.authHeaders(t),
+                  body: payload,
+                ),
+              )
+              : await http
+                  .post(uri, headers: ApiHeaders.publicHeaders, body: payload)
+                  .timeout(const Duration(seconds: 20));
 
       if (res.statusCode >= 200 && res.statusCode < 300) {
         final text = res.body.trimLeft();
-        return {
-          "success": true,
-          "data": text.isEmpty ? {} : jsonDecode(text),
-        };
+        return {"success": true, "data": text.isEmpty ? {} : jsonDecode(text)};
       }
       throw ErrorMapper.toAppException(res, statusCode: res.statusCode);
     } catch (e) {
@@ -238,21 +311,23 @@ class AuthService {
     try {
       final uri = Uri.parse(url);
 
-      final http.Response res = useAuth
-          ? await _authedOnceWithRefresh(
-              (t) => http.get(uri, headers: ApiHeaders.authHeaders(t)),
-            )
-          : await http
-              .get(uri, headers: ApiHeaders.publicHeaders)
-              .timeout(const Duration(seconds: 20));
+      final http.Response res =
+          useAuth
+              ? await _authedOnceWithRefresh(
+                (t) => http.get(uri, headers: ApiHeaders.authHeaders(t)),
+              )
+              : await http
+                  .get(uri, headers: ApiHeaders.publicHeaders)
+                  .timeout(const Duration(seconds: 20));
 
       if (res.statusCode >= 200 && res.statusCode < 300) {
         final text = res.body.trimLeft();
         return {
           "success": true,
-          "data": text.isNotEmpty && text.startsWith('{')
-              ? jsonDecode(text)
-              : {"raw": res.body},
+          "data":
+              text.isNotEmpty && text.startsWith('{')
+                  ? jsonDecode(text)
+                  : {"raw": res.body},
         };
       }
       throw ErrorMapper.toAppException(res, statusCode: res.statusCode);
@@ -270,20 +345,22 @@ class AuthService {
       final uri = Uri.parse(url);
       final payload = jsonEncode(body);
 
-      final http.Response res = useAuth
-          ? await _authedOnceWithRefresh(
-              (t) => http.put(uri, headers: ApiHeaders.authHeaders(t), body: payload),
-            )
-          : await http
-              .put(uri, headers: ApiHeaders.publicHeaders, body: payload)
-              .timeout(const Duration(seconds: 20));
+      final http.Response res =
+          useAuth
+              ? await _authedOnceWithRefresh(
+                (t) => http.put(
+                  uri,
+                  headers: ApiHeaders.authHeaders(t),
+                  body: payload,
+                ),
+              )
+              : await http
+                  .put(uri, headers: ApiHeaders.publicHeaders, body: payload)
+                  .timeout(const Duration(seconds: 20));
 
       if (res.statusCode >= 200 && res.statusCode < 300) {
         final text = res.body.trimLeft();
-        return {
-          "success": true,
-          "data": text.isEmpty ? {} : jsonDecode(text),
-        };
+        return {"success": true, "data": text.isEmpty ? {} : jsonDecode(text)};
       }
       throw ErrorMapper.toAppException(res, statusCode: res.statusCode);
     } catch (e) {

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+  <!-- Allow cleartext HTTP only to this host -->
+  <domain-config cleartextTrafficPermitted="true">
+    <domain includeSubdomains="true">smpp.revesms.com</domain>
+  </domain-config>
+</network-security-config>

@@ -98,18 +98,23 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
           _auth.saveTokens(access, refresh);
         }
 
-        Get.snackbar('Success', 'OTP verified and password set.');
+        Get.snackbar(
+          'Success', 'OTP verified and password set.',
+          backgroundColor: Colors.green[600],
+          colorText: Colors.white,
+          );
         // Go straight into the app
         Get.offAllNamed('/home'); // or '/dashboard'
       } else {
         Get.snackbar(
           'Failed',
           res['message']?.toString() ?? 'Verification failed',
-          backgroundColor: Colors.red[100],
+          backgroundColor: const Color.fromARGB(255, 239, 5, 28),
+          colorText: Colors.white,
         );
       }
     } catch (e) {
-      Get.snackbar('Error', e.toString(), backgroundColor: Colors.red[100]);
+      Get.snackbar('Error', e.toString(), backgroundColor: const Color.fromARGB(255, 239, 5, 28));
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -123,11 +128,11 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
     try {
       final res = await _auth.requestOtp(normalizeBdPhone(_phone));
       if (res['success'] == true) {
-        final data = res['data'] as Map<String, dynamic>;
-        final maybeOtp = data['otp'];
         Get.snackbar(
           'OTP Sent',
-          'A new OTP was sent to $_phone${maybeOtp != null ? " (Test OTP: $maybeOtp)" : ""}',
+          'A new OTP was sent to $_phone',
+          backgroundColor: Colors.green[600],
+          colorText: Colors.white,
         );
         _startCooldown();
       } else {
@@ -135,12 +140,12 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
         Get.snackbar(
           'Failed',
           res['message']?.toString() ?? 'Could not resend OTP',
-          backgroundColor: Colors.red[100],
+          backgroundColor: const Color.fromARGB(255, 239, 5, 28),
         );
       }
     } catch (e) {
       setState(() => _resendCount--);
-      Get.snackbar('Error', e.toString(), backgroundColor: Colors.red[100]);
+      Get.snackbar('Error', e.toString(), backgroundColor: const Color.fromARGB(255, 239, 5, 28));
     }
   }
 
@@ -281,7 +286,13 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
                     children: [
                       TextButton(
                         onPressed: (_secondsLeft == 0) ? _resendOtp : null,
-                        child: const Text('Resend OTP'),
+                        child: const Text(
+                          'Resend OTP',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: themeGreen,
+                            ),
+                        ),
                       ),
                       const SizedBox(width: 8),
                       Text(
