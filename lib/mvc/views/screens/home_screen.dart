@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:image/image.dart' as img;
+import 'package:weight_calculator/mvc/views/pages/payment_history_page.dart';
 import 'package:weight_calculator/widgets/user_guide_widget.dart';
 
 import '../../controllers/cow_controller.dart';
@@ -478,10 +479,13 @@ class _HomeScreenState extends State<HomeScreen> {
         body = _buildHomeContent();
         break;
       case 1:
-        body = const CreditPage();
+        body =  CreditPage();
         break;
       case 2:
-        body = const UserProfile();
+        body =  PaymentHistoryPage();
+        break;
+      case 3:
+        body =  UserProfile();
         break;
       default:
         body = _buildHomeContent();

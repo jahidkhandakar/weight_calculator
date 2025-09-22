@@ -6,8 +6,10 @@ import 'package:camera/camera.dart';
 import 'package:shurjopay/utilities/functions.dart';
 // Controllers / Services
 import 'package:weight_calculator/mvc/controllers/auth_controller.dart';
+import 'package:weight_calculator/mvc/controllers/payment_history_controller.dart';
 import 'package:weight_calculator/mvc/views/pages/aruco_marker_download_page.dart';
 import 'package:weight_calculator/mvc/views/pages/faq_page.dart';
+import 'package:weight_calculator/mvc/views/pages/payment_history_page.dart';
 import 'package:weight_calculator/mvc/views/pages/pricing_policy_page.dart';
 import 'package:weight_calculator/services/auth_service.dart';
 // Screens & Pages
@@ -53,8 +55,8 @@ Future<void> main() async {
     }
   };
 
-  // Decide initial route: go to /home only if we have a token
   final token = GetStorage().read('access_token')?.toString();
+  Get.lazyPut<PaymentHistoryController>(() => PaymentHistoryController(), fenix: true);
 
   runApp(WeightCalculator());
 }
@@ -103,6 +105,7 @@ class WeightCalculator extends StatelessWidget {
         GetPage(name: '/aruco_pdf', page: () => ArucoMarkerDownloadPage()),
         GetPage(name: '/faq', page: () => FaqPage()),
         GetPage(name: '/pricing', page: () => PricingPolicyPage()),
+        GetPage(name: '/history', page: () => PaymentHistoryPage()),
       ],
     );
   }

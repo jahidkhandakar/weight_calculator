@@ -307,6 +307,7 @@ class AuthService {
     }
   }
 
+  //*_____________________________GET________________________________//
   Future<Map<String, dynamic>> _get(String url, bool useAuth) async {
     try {
       final uri = Uri.parse(url);
@@ -321,21 +322,21 @@ class AuthService {
                   .timeout(const Duration(seconds: 20));
 
       if (res.statusCode >= 200 && res.statusCode < 300) {
-        final text = res.body.trimLeft();
-        return {
-          "success": true,
-          "data":
-              text.isNotEmpty && text.startsWith('{')
-                  ? jsonDecode(text)
-                  : {"raw": res.body},
-        };
+        final text = res.body.trim();
+        if (text.isEmpty) {
+          return {"success": true, "data": []};
+        }
+
+        final decoded = jsonDecode(text);
+        return {"success": true, "data": decoded};
       }
+
       throw ErrorMapper.toAppException(res, statusCode: res.statusCode);
     } catch (e) {
       throw ErrorMapper.toAppException(e);
     }
   }
-
+  //*_____________________________PUT________________________________//
   Future<Map<String, dynamic>> _put(
     String url,
     Map<String, dynamic> body,
@@ -407,4 +408,8 @@ class AuthService {
     return res;
     // All non-2xx errors are handled by callers via ErrorMapper in _post/_get/_put.
   }
+
+  //*_________________Payment History__________________*//
+  Future<Map<String, dynamic>> getPaymentHistory() =>
+      _get(Api.paymentHistory, true);
 }
