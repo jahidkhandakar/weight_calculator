@@ -55,6 +55,7 @@ dependencies:
   share_plus: ^10.0.0
   printing: ^5.13.1
   intl: ^0.19.0
+  pdfx: ^2.9.2
 
 flutter_launcher_icons:
   android: true

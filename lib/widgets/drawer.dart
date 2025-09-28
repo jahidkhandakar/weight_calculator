@@ -28,6 +28,7 @@ class _AppDrawerState extends State<AppDrawer> {
     final List<String> drawerItems = [
     "About",
     "How to use this App",
+    "Image Capture Guidelines",
     "About ArUco Marker ",
     "How to download ArUco Marker",
     "FAQ",
@@ -131,9 +132,29 @@ class _AppDrawerState extends State<AppDrawer> {
                   },
                 ),
                 ListTile(
-                  leading: const Icon(Icons.qr_code),
+                  leading: const Icon(Icons.camera_alt),
                   title: Text(
                     drawerItems[2],
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.5,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 2,
+                  ),
+                  onTap: () {
+                    Get.back();
+                    Get.toNamed('/image_rules');
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.qr_code),
+                  title: Text(
+                    drawerItems[3],
                     style: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w600,
@@ -153,7 +174,7 @@ class _AppDrawerState extends State<AppDrawer> {
                 ListTile(
                   leading: const Icon(Icons.picture_as_pdf),
                   title: Text(
-                    drawerItems[3],
+                    drawerItems[4],
                     style: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w600,
@@ -173,7 +194,7 @@ class _AppDrawerState extends State<AppDrawer> {
                 ListTile(
                   leading: const Icon(Icons.help_outline),
                   title: Text(
-                    drawerItems[4],
+                    drawerItems[5],
                     style: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w600,
@@ -193,7 +214,7 @@ class _AppDrawerState extends State<AppDrawer> {
                 ListTile(
                   leading: const Icon(Icons.attach_money),
                   title: Text(
-                    drawerItems[5],
+                    drawerItems[6],
                     style: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w600,
@@ -213,7 +234,7 @@ class _AppDrawerState extends State<AppDrawer> {
                 ListTile(
                   leading: const Icon(Icons.local_offer, color: Colors.green),
                   title: Text(
-                    drawerItems[6],
+                    drawerItems[7],
                     style: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.bold,
