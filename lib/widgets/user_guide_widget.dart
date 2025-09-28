@@ -18,7 +18,7 @@ class UserGuideWidget extends StatelessWidget {
               label: const Text('কিভাবে APP ব্যবহার করবেন'),
               style: ElevatedButton.styleFrom(
                 minimumSize: const Size(double.infinity, 48),
-                backgroundColor: Colors.green[800],
+                backgroundColor: const Color.fromARGB(255, 1, 104, 51),
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
@@ -34,7 +34,7 @@ class UserGuideWidget extends StatelessWidget {
               label: const Text('Aruco Marker ডাউনলোড'),
               style: ElevatedButton.styleFrom(
                 minimumSize: const Size(double.infinity, 48),
-                backgroundColor: Colors.green[800],
+                backgroundColor: const Color.fromARGB(255, 1, 104, 51),
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
@@ -50,7 +50,7 @@ class UserGuideWidget extends StatelessWidget {
               label: const Text('FAQ'),
               style: ElevatedButton.styleFrom(
                 minimumSize: const Size(double.infinity, 48),
-                backgroundColor: Colors.green[800],
+                backgroundColor: const Color.fromARGB(255, 1, 104, 51),
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
