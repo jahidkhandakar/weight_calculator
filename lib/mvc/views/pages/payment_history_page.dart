@@ -1,3 +1,4 @@
+// lib/mvc/views/pages/payment_history_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
@@ -7,6 +8,7 @@ import 'package:weight_calculator/mvc/controllers/payment_history_controller.dar
 class PaymentHistoryPage extends StatelessWidget {
   PaymentHistoryPage({super.key});
 
+  // Controller is registered in main via Get.lazyPut
   final PaymentHistoryController controller = Get.find<PaymentHistoryController>();
 
   String _formatDate(DateTime dt) => DateFormat('yyyy-MM-dd HH:mm').format(dt);
@@ -25,17 +27,18 @@ class PaymentHistoryPage extends StatelessWidget {
   }
 
   Future<void> _showDetailsDialog(BuildContext context, dynamic p) async {
-    final statusColor = _statusColor(p.status);
+    final color = _statusColor(p.status);
     await showDialog<void>(
       context: context,
       builder: (_) => AlertDialog(
-        title: Text(
+        title: const Text(
           'Payment Details',
           style: TextStyle(
-            fontWeight: FontWeight.w600,
-            color: const Color.fromARGB(255, 1, 104, 51),
+            fontWeight: FontWeight.bold,
+            fontSize: 24,
+            color: Color.fromARGB(255, 1, 104, 51),
+            ),
           ),
-        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -46,24 +49,19 @@ class PaymentHistoryPage extends StatelessWidget {
             const SizedBox(height: 6),
             Row(
               children: [
-                const Text('Status: ',
-                    style: TextStyle(fontWeight: FontWeight.w600)),
+                const Text('Status: ', style: TextStyle(fontWeight: FontWeight.w600)),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.1),
+                    color: color.withOpacity(0.1),
+                    border: Border.all(color: color.withOpacity(0.35)),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: statusColor.withOpacity(0.35)),
                   ),
                   child: Text(
                     p.status.toLowerCase() == 'success'
                         ? 'Successful'
                         : p.status[0].toUpperCase() + p.status.substring(1).toLowerCase(),
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w600,
-                      color: statusColor,
-                    ),
+                    style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: color),
                   ),
                 ),
               ],
@@ -83,14 +81,12 @@ class PaymentHistoryPage extends StatelessWidget {
           ],
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(
-              'OK',
-              style: TextStyle(
-                color: const Color.fromARGB(255, 1, 104, 51),
-                fontWeight: FontWeight.w600,
-                fontSize: 18,
+          TextButton(onPressed: () => Navigator.of(context).pop(), 
+          child: Text(
+            'OK',
+            style: TextStyle(
+              color: const Color.fromARGB(255, 1, 104, 51),
+              fontSize: 18,
               ),
             ),
           ),
@@ -125,8 +121,7 @@ class PaymentHistoryPage extends StatelessWidget {
         }
 
         if (controller.error.isNotEmpty) {
-          // ignore: avoid_print
-          print("Error: ${controller.error.value}");
+          // Don’t worry about auth-expired here—controller triggers global hook
           return RefreshIndicator(
             onRefresh: controller.fetchPaymentHistory,
             child: ListView(
@@ -184,24 +179,17 @@ class PaymentHistoryPage extends StatelessWidget {
               return Card(
                 margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 elevation: 3,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 child: ListTile(
-                  onTap: () => _showDetailsDialog(context, p), // <-- show dialog
-                  contentPadding: const EdgeInsets.symmetric(
-                    vertical: 14,
-                    horizontal: 18,
-                  ),
+                  onTap: () => _showDetailsDialog(context, p),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 18),
                   leading: CircleAvatar(
                     radius: 24,
                     backgroundColor: _statusColor(p.status).withOpacity(0.15),
                     child: Icon(
                       p.status.toLowerCase() == 'success'
                           ? Icons.check_circle
-                          : (p.status.toLowerCase() == 'pending'
-                              ? Icons.pending
-                              : Icons.error_outline),
+                          : (p.status.toLowerCase() == 'pending' ? Icons.pending : Icons.error_outline),
                       color: _statusColor(p.status),
                       size: 28,
                     ),
@@ -221,30 +209,22 @@ class PaymentHistoryPage extends StatelessWidget {
                       children: [
                         Text(
                           "Amount: ${p.amount}৳",
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.black87,
-                          ),
+                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: Colors.black87),
                         ),
                         const SizedBox(height: 2),
                         Row(
                           children: [
                             Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 4),
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
                                 color: _statusColor(p.status).withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
-                                  color: _statusColor(p.status).withOpacity(0.35),
-                                ),
+                                border: Border.all(color: _statusColor(p.status).withOpacity(0.35)),
                               ),
                               child: Text(
                                 p.status.toLowerCase() == 'success'
                                     ? 'Successful'
-                                    : p.status[0].toUpperCase() +
-                                        p.status.substring(1).toLowerCase(),
+                                    : p.status[0].toUpperCase() + p.status.substring(1).toLowerCase(),
                                 style: TextStyle(
                                   fontSize: 12.5,
                                   fontWeight: FontWeight.w600,
@@ -255,10 +235,7 @@ class PaymentHistoryPage extends StatelessWidget {
                             const SizedBox(width: 8),
                             Text(
                               _formatDate(p.createdAt),
-                              style: const TextStyle(
-                                fontSize: 13,
-                                color: Colors.grey,
-                              ),
+                              style: const TextStyle(fontSize: 13, color: Colors.grey),
                             ),
                           ],
                         ),
@@ -267,10 +244,7 @@ class PaymentHistoryPage extends StatelessWidget {
                           "Txn: ${p.uuid}",
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 12.5,
-                            color: Colors.black54,
-                          ),
+                          style: const TextStyle(fontSize: 12.5, color: Colors.black54),
                         ),
                       ],
                     ),

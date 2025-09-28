@@ -82,7 +82,7 @@ class AboutPage extends StatelessWidget {
 
               const SizedBox(height: 36),
 
-              //* Version (dynamic, with fallback)
+              //* ----- Version (dynamic, with fallback) ------ *//
               FutureBuilder<PackageInfo>(
                 future: PackageInfo.fromPlatform(),
                 builder: (context, snap) {
